@@ -35,70 +35,97 @@ def img_to_html(img):
 
 
 def add_job_position():
-    st.session_state.n_jobs += 1
+    next_job = max(st.session_state.jobs) + 1
+    st.session_state.jobs.append(next_job)
 
 
 def del_job_position(i):
     def del_job():
-        st.session_state.n_jobs -= 1
-        del job_titles[i]
+        to_del = st.session_state.jobs.index(i)
+        del st.session_state.jobs[to_del]
     return del_job
+
+
+def set_searching():
+    st.session_state.searching = True
     
 
 if __name__ == '__main__':
     # st.set_page_config(layout="wide")
     N_IDEAS_TO_SHOW = 10
 
+    st.set_page_config(
+        page_title='Streamlit cheat sheet',
+        layout="wide",
+        initial_sidebar_state="expanded",
+    )
+
     model_gui = st.container()
 
-    if 'n_jobs' not in st.session_state:
-        st.session_state.n_jobs = 1
+    if 'jobs' not in st.session_state:
+        st.session_state.jobs = [1]
     if 'searching' not in st.session_state:
-        st.session_state.searching = True
+        st.session_state.searching = False
     job_titles = []
 
     with model_gui:
-        st.header('Good Job Finder')
-        st.write('Find a job that matches your skills and interests')
+        st.markdown("<h1 style='text-align: center;'>Good Job Finder</h1>", unsafe_allow_html=True)
+        st.markdown("<h3 style='text-align: center;'>Find a job that matches your skills and interests</h3>", unsafe_allow_html=True)
         
         info_col, output_col = st.columns([1, 1])
 
         with info_col:
-            st.subheader('Upload CV')
-            st.file_uploader('Upload your CV', type=['pdf', 'docx', 'doc'])
+            st.markdown("<h4 style='text-align: center;'>Upload CV</h4>", unsafe_allow_html=True)
+            # st.subheader('Upload CV')
+            st.file_uploader('Upload your CV', type=['pdf'])
 
-            st.subheader('Your personal information')
+            st.markdown("<h4 style='text-align: center;'>Your personal information</h4>", unsafe_allow_html=True)
             name_col, surname_col = st.columns(2)
             name = name_col.text_input('Name', placeholder='Oli')
             surname = surname_col.text_input('Surname', placeholder='Ali')
             birthdate = st.date_input('Birthdate', value=None, min_value=None, max_value=None)
             address = st.text_input('Address', placeholder='123 Main St, New York, NY 10030')
+            email_col, nr_col = st.columns(2)
+            email = email_col.text_input('Email', placeholder='person@gmail.com')
+            phone_nr = nr_col.text_input('Phone number', placeholder='+1 123 456 789')
 
-            st.subheader('Your preferences')
+            st.markdown("<h4 style='text-align: center;'>Your preferences</h4>", unsafe_allow_html=True)
 
-            for i in range(st.session_state.n_jobs):
-                del_col, job_col = st.columns([0.2, 0.8])
+            for i in st.session_state.jobs:
+                del_col, job_col = st.columns([0.1, 0.9])
                 with job_col:
-                    job_titles.append(st.text_input(f'Job title {i+1}', placeholder='Data Scientist'))
+                    job_titles.append(st.text_input(f'Job title {i}', placeholder='Data Scientist'))
                 with del_col:
-                    st.button('X', key=f'delete_job_{i+1}', on_click=del_job_position(i))
+                    st.write(' ')
+                    st.button('X', key=f'delete_job_{i}', on_click=del_job_position(i))
 
-            print(st.session_state.n_jobs)
+            print(st.session_state.jobs)
             add_more = st.button('Add more viable job positions', on_click=add_job_position)
 
             min_col, max_col = st.columns([1, 1]) 
             min_wage = min_col.number_input('Min Monthly Net $', value=1_000, min_value=0, step=50)
-            max_budget = max_col.number_input('Max Monthly Net $', value=2_000, min_value=0, step=50)
+            max_wage = max_col.number_input('Max Monthly Net $', value=2_000, min_value=0, step=50)
 
             st.text_area('Provide tags for skills and interests delimited by comma',
                           placeholder='python, data science, machine learning')
             st.text_area('Provide benefits you are looking for in a job delimited by comma',
                           placeholder='remote, flexible hours, health insurance')
+            
+
+            _, _, _, _, submit_col = st.columns(5)
+            submit = submit_col.button('Start Job Hunt', on_click=set_searching)
 
 
         if st.session_state.searching:
             with output_col:
-                st.subheader('Job recommendations')
+                st.markdown("<h4 style='text-align: center;'>Job recommendations</h4>", unsafe_allow_html=True)
+
+                ### ADD THE RECOMMENDATIONS HERE ###
+
+                _, spinner_col, _ = st.columns(3)
+                with spinner_col:
+                    with st.spinner(text="In progress..."):
+                        input()
 
         # min_col, max_col, disp_col = st.columns([0.5, 0.5, 1]) # Then 4 columns for min/max budget
         # sel_col, img_col = st.columns(2) # First 2 columns, 1 for input, 2nd for output
