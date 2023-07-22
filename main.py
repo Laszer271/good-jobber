@@ -31,7 +31,7 @@ def get_content_from_wiki():
 
     opts = FirefoxOptions()
     opts.add_argument("--headless")
-    browser = webdriver.Firefox(opts)
+    browser = webdriver.Firefox(options=opts)
     browser.get('https://en.wikipedia.org/wiki/Main_Page')
 
     list_xpath = '//*[@id="vector-main-menu-dropdown-checkbox"]'
