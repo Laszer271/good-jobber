@@ -12,18 +12,16 @@ from selenium import webdriver
 from selenium.webdriver.support.wait import WebDriverWait
 from selenium.webdriver.common.by import By
 
-with open('credentials/openai_api_key.txt', 'r') as f:
+import json
+
+with open('./credentials/openai.txt', 'r') as f:
     openai_api_key = f.read()
 
 
-def do_work(form):
+def do_work(form, user_info):
     llm = OpenAI(openai_api_key=openai_api_key, temperature=0.1)
 
-    print(form)
-
-    imie = "Kacper"
-    nazwisko = "Leszczyński"
-    email = "kacper.leszczu8@gmail.com"
+    # print(form)
 
     form_template = ""
 
@@ -81,7 +79,11 @@ if __name__ == '__main__':
 
     myForm = driver.find_element(By.TAG_NAME, 'form')
     # content_form = driver.find_element("xpath", form_tag)
-    print(myForm.get_attribute("outerHTML"))
+    
 
+    with open('./data/example_personal_info.json', 'r') as f:
+        user_info = json.load(f)
 
-    # do_work(form_element)
+    content = myForm.get_attribute("outerHTML")
+    # print(content)
+    do_work(content, user_info=user_info)
