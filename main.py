@@ -1,23 +1,5 @@
 import streamlit as st
-import pandas as pd
-import numpy as np
-import re
-from io import BytesIO
-import base64
-from PIL import Image
-
-# from generating.text_generation import TextGenerator
-# from generating.image_generation import ImageGenerator
-# from generating.text_generation import make_prompt_data_for_gpt
-
-
-from selenium import webdriver
-from selenium.webdriver.support.wait import WebDriverWait 
-from selenium.webdriver.support import expected_conditions as EC
-from selenium.webdriver import FirefoxOptions
-
-import os
-
+import os, sys
 
 @st.cache_resource
 def installff():
@@ -26,6 +8,17 @@ def installff():
   os.system('ln -s /home/appuser/venv/lib/python3.7/site-packages/seleniumbase/drivers/geckodriver /home/appuser/venv/bin/geckodriver')
 
 _ = installff()
+
+import numpy as np
+import re
+from io import BytesIO
+import base64
+from PIL import Image
+
+from selenium import webdriver
+from selenium.webdriver.support.wait import WebDriverWait 
+from selenium.webdriver.support import expected_conditions as EC
+from selenium.webdriver import FirefoxOptions
 
 
 def get_content_from_wiki():
