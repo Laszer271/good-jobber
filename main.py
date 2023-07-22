@@ -142,6 +142,7 @@ def get_content_from_wiki():
     
 
 if __name__ == '__main__':
+
     st.set_page_config(
         page_title='Streamlit cheat sheet',
         layout="wide",
