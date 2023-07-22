@@ -10,6 +10,49 @@ from PIL import Image
 # from generating.image_generation import ImageGenerator
 # from generating.text_generation import make_prompt_data_for_gpt
 
+
+from selenium import webdriver
+from selenium.webdriver.support.wait import WebDriverWait 
+from selenium.webdriver.support import expected_conditions as EC
+
+def get_content_from_wiki():
+    def wait_for_text(browser, xpath):
+        print('waiting for element')
+        print('Text:', f'"{browser.find_element("xpath", xpath).text}"')
+        return len(browser.find_element("xpath", xpath).text) > 10
+        # element = WebDriverWait(browser, 10).until(
+        #     lambda x: len(x.find_element('xpath' xpath).text) > 10
+        # )
+        # return element
+
+    browser = webdriver.Firefox()
+    browser.get('https://en.wikipedia.org/wiki/Main_Page')
+
+    list_xpath = '//*[@id="vector-main-menu-dropdown-checkbox"]'
+    random = '/html/body/div[1]/header/div[1]/nav/div/div/div/div/div[2]/div[2]/ul/li[4]/a'
+    first_par = '/html/body/div[2]/div/div[3]/main/div[3]/div[3]/div[1]/p[2]'
+
+    # click on the checkbox
+    next_button = WebDriverWait(browser, 10).until(lambda x: x.find_element('xpath', list_xpath)) 
+    # next_button = browser.find_element("xpath", list_xpath)
+    browser.execute_script("arguments[0].scrollIntoView();", next_button)
+    next_button.click()
+
+    next_button = WebDriverWait(browser, 10).until(lambda x: x.find_element('xpath', random)) 
+    # next_button = browser.find_element("xpath", random)
+    browser.execute_script("arguments[0].scrollIntoView();", next_button)
+    next_button.click()
+
+    # not always working:
+    content = WebDriverWait(browser, 10).until(lambda x: wait_for_text(x, first_par))
+    content = browser.find_element("xpath", first_par).text
+    print(content)
+
+    # close browser
+    browser.close()
+    return content
+
+
 def gift_idea_to_amazon(idea: str, budget_min: float, budget_max: float):
     pass
 
@@ -46,8 +89,50 @@ def del_job_position(i):
     return del_job
 
 
+
+
+
 def set_searching():
+    st.session_state.recommendations.append(get_content_from_wiki())
     st.session_state.searching = True
+
+
+def get_content_from_wiki():
+    def wait_for_text(browser, xpath):
+        print('waiting for element')
+        print('Text:', f'"{browser.find_element("xpath", xpath).text}"')
+        return len(browser.find_element("xpath", xpath).text) > 10
+        # element = WebDriverWait(browser, 10).until(
+        #     lambda x: len(x.find_element('xpath' xpath).text) > 10
+        # )
+        # return element
+
+    browser = webdriver.Firefox()
+    browser.get('https://en.wikipedia.org/wiki/Main_Page')
+
+    list_xpath = '//*[@id="vector-main-menu-dropdown-checkbox"]'
+    random = '/html/body/div[1]/header/div[1]/nav/div/div/div/div/div[2]/div[2]/ul/li[4]/a'
+    first_par = '/html/body/div[2]/div/div[3]/main/div[3]/div[3]/div[1]/p[2]'
+
+    # click on the checkbox
+    next_button = WebDriverWait(browser, 10).until(lambda x: x.find_element('xpath', list_xpath)) 
+    # next_button = browser.find_element("xpath", list_xpath)
+    browser.execute_script("arguments[0].scrollIntoView();", next_button)
+    next_button.click()
+
+    next_button = WebDriverWait(browser, 10).until(lambda x: x.find_element('xpath', random)) 
+    # next_button = browser.find_element("xpath", random)
+    browser.execute_script("arguments[0].scrollIntoView();", next_button)
+    next_button.click()
+
+    # not always working:
+    content = WebDriverWait(browser, 10).until(lambda x: wait_for_text(x, first_par))
+    content = browser.find_element("xpath", first_par).text
+    print(content)
+
+    # close browser
+    browser.close()
+    return content
     
 
 if __name__ == '__main__':
@@ -66,6 +151,8 @@ if __name__ == '__main__':
         st.session_state.jobs = [1]
     if 'searching' not in st.session_state:
         st.session_state.searching = False
+    if 'recommendations' not in st.session_state:
+        st.session_state.recommendations = []
     job_titles = []
 
     with model_gui:
@@ -121,6 +208,13 @@ if __name__ == '__main__':
                 st.markdown("<h4 style='text-align: center;'>Job recommendations</h4>", unsafe_allow_html=True)
 
                 ### ADD THE RECOMMENDATIONS HERE ###
+                for i, rec in enumerate(st.session_state.recommendations):
+                    del_col, job_col = st.columns([0.1, 0.9])
+                    with job_col:
+                        job_titles.append(st.markdown(f'Rec {i}: "{rec}"'))
+                    # with del_col:
+                    #     st.write(' ')
+                    #     st.button('X', key=f'delete_rec_{i}', on_click=del_job_position(i))
 
                 _, spinner_col, _ = st.columns(3)
                 with spinner_col:
