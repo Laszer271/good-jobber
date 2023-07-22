@@ -14,6 +14,17 @@ from PIL import Image
 from selenium import webdriver
 from selenium.webdriver.support.wait import WebDriverWait 
 from selenium.webdriver.support import expected_conditions as EC
+from selenium.webdriver import FirefoxOptions
+
+import os
+
+@st.experimental_singleton
+def installff():
+  os.system('sbase install geckodriver')
+  os.system('ln -s /home/appuser/venv/lib/python3.7/site-packages/seleniumbase/drivers/geckodriver /home/appuser/venv/bin/geckodriver')
+
+_ = installff()
+
 
 def get_content_from_wiki():
     def wait_for_text(browser, xpath):
@@ -25,6 +36,8 @@ def get_content_from_wiki():
         # )
         # return element
 
+    opts = FirefoxOptions()
+    opts.add_argument("--headless")
     browser = webdriver.Firefox()
     browser.get('https://en.wikipedia.org/wiki/Main_Page')
 
