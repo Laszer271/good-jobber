@@ -7,14 +7,6 @@ def installff():
   os.system('sbase install geckodriver')
   os.system('ln -s /home/appuser/venv/lib/python3.7/site-packages/seleniumbase/drivers/geckodriver /home/appuser/venv/bin/geckodriver')
 
-  st.set_page_config(
-        page_title='Streamlit cheat sheet',
-        layout="wide",
-        initial_sidebar_state="expanded",
-    )
-
-_ = installff()
-
 import numpy as np
 import re
 from io import BytesIO
@@ -150,6 +142,14 @@ def get_content_from_wiki():
     
 
 if __name__ == '__main__':
+
+    st.set_page_config(
+        page_title='Streamlit cheat sheet',
+        layout="wide",
+        initial_sidebar_state="expanded",
+    )
+    _ = installff()
+
     # st.set_page_config(layout="wide")
     N_IDEAS_TO_SHOW = 10
 
