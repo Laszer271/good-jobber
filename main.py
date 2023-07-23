@@ -209,7 +209,7 @@ if __name__ == '__main__':
                           placeholder='remote, flexible hours, health insurance')
             
 
-            _, submit_col = st.columns([0.85, 0.15])
+            _, submit_col = st.columns([0.70, 0.30])
             with submit_col:
                 st.write('')
                 st.write('')
@@ -239,7 +239,7 @@ if __name__ == '__main__':
 
                 ### ADD THE RECOMMENDATIONS ###
                 for i, job_offer in enumerate(st.session_state.job_offers[:N_OFFERS_TO_SHOW]):
-                    _, job_col, buttons_col = st.columns([0.05, 0.86, 0.09])
+                    _, job_col, buttons_col = st.columns([0.05, 0.73, 0.22])
 
                     job_title = job_offer['JobTitle']
                     company = job_offer['Company']
