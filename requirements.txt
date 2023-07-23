@@ -4,4 +4,6 @@ selenium==4.10.0
 langchain==0.0.239
 beautifulsoup4==4.12.2
 openai==0.27.8
-streamlit-elements==0.1.0
+# streamlit-elements==0.1.0
+lxml==4.9.3
+fake-useragent==1.1.3

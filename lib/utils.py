@@ -15,12 +15,9 @@ def add_to_color(color, amount):
             color = 0
         return int(color)
 
-    # r_comp = _clip_color(color & 0xFF0000 + amount & 0xFF0000)
     r_comp = _clip_color(float((color >> 16) & 0x0000FF) + float((amount >> 16) & 0x0000FF)) 
     g_comp = _clip_color(float((color >> 8) & 0x0000FF) + float((amount >> 8) & 0x0000FF))
     b_comp = _clip_color(float(color & 0x0000FF) + float(amount & 0x0000FF)) 
-    # g_comp = _clip_color(color & 0x00FF00 + amount & 0x00FF00)
-    # b_comp = _clip_color(color & 0x0000FF + amount & 0x0000FF)  
     print(r_comp, g_comp, b_comp) 
     print(r_comp << 16, g_comp << 8, b_comp)
     print((r_comp << 16) + (g_comp << 8) + b_comp)
