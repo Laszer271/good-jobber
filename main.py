@@ -108,6 +108,7 @@ def set_searching():
 def get_job_recommendations(candidate_preferences):
     # for now completely ignore the preferences
     # this should be run only once when job hunt is started
+    print(candidate_preferences)
 
     with open('./data/job_offers.json', 'r') as f:
         job_list = json.load(f)
@@ -203,10 +204,12 @@ if __name__ == '__main__':
             min_wage = min_col.number_input('Min Monthly Net $', value=1_000, min_value=0, step=50)
             max_wage = max_col.number_input('Max Monthly Net $', value=2_000, min_value=0, step=50)
 
-            st.text_area('Provide tags for skills and interests delimited by comma',
-                          placeholder='python, data science, machine learning')
-            st.text_area('Provide benefits you are looking for in a job delimited by comma',
-                          placeholder='remote, flexible hours, health insurance')
+            skills = st.text_area('Provide tags for skills and interests delimited by comma',
+                                  placeholder='python, data science, machine learning')
+            benefits = st.text_area('Provide benefits you are looking for in a job delimited by comma',
+                                    placeholder='remote, flexible hours, health insurance')
+            experience = st.selectbox('Years of experience', options=['No experience', '0-1 years', '1-2 years', '2-3 years',
+                                                                     '3-5 years', '5-8 years', '8+ years'])
             
 
             _, submit_col = st.columns([0.70, 0.30])
@@ -232,7 +235,16 @@ if __name__ == '__main__':
 
         if st.session_state.searching:
             if st.session_state.get_jobs:
-                st.session_state.job_offers = get_job_recommendations('')
+                # Values are loaded from all the streamlit fields
+                comm_experience = f'With commercial experience of {experience}' if experience != 'No experience' else 'With no commercial experience'
+                person_description = f'''
+                Interested in following job titles: {', '.join(job_titles)} or similar
+                Looking for a job with a salary between {min_wage} and {max_wage} $/month
+                Especially interested in following skills and technologies: {skills} or similar
+                Looking for a job with following benefits: {benefits}
+                {comm_experience}
+                '''
+                st.session_state.job_offers = get_job_recommendations(person_description)
                 st.session_state.get_jobs = False
             with output_col:
                 st.markdown("<h4 style='text-align: center;'>Job recommendations</h4>", unsafe_allow_html=True)
