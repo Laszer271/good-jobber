@@ -12,11 +12,15 @@ import re
 from io import BytesIO
 import base64
 from PIL import Image
+import json
 
 from selenium import webdriver
 from selenium.webdriver.support.wait import WebDriverWait 
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver import FirefoxOptions
+
+from html_components import JOB_OFFER, DEFAULT_STYLE
+from lib.utils import ChangeButtonColour
 
 
 def get_content_from_wiki():
@@ -96,9 +100,42 @@ def del_job_position(i):
 
 
 def set_searching():
-    st.session_state.recommendations.append(get_content_from_wiki())
+    # st.session_state.recommendations.append(get_content_from_wiki())
     st.session_state.searching = True
+    st.session_state.get_jobs = True
 
+
+def get_job_recommendations(candidate_preferences):
+    # for now completely ignore the preferences
+    # this should be run only once when job hunt is started
+
+    with open('./data/job_offers.json', 'r') as f:
+        job_list = json.load(f)
+
+    return job_list
+
+
+def del_job_offer(i):
+    def del_job():
+        del st.session_state.job_offers[i]
+    return del_job
+
+
+def accept_job_offer(i):
+    # TODO: add the job to the list of accepted jobs
+    def accept_job():
+        del st.session_state.job_offers[i]
+    return accept_job
+
+
+def accept_all_job_offers(n_jobs):
+    def accept_all():
+        for i in range(n_jobs):
+            accept_job_offer(0)()
+    return accept_all
+
+
+N_OFFERS_TO_SHOW = 5
 
 if __name__ == '__main__':
 
@@ -120,9 +157,13 @@ if __name__ == '__main__':
         st.session_state.searching = False
     if 'recommendations' not in st.session_state:
         st.session_state.recommendations = []
+    if 'get_jobs' not in st.session_state:
+        st.session_state.get_jobs = False 
+
     job_titles = []
 
     with model_gui:
+        st.markdown(DEFAULT_STYLE, unsafe_allow_html=True)
         st.markdown("<h1 style='text-align: center;'>Good Job Finder</h1>", unsafe_allow_html=True)
         st.markdown("<h3 style='text-align: center;'>Find a job that matches your skills and interests</h3>", unsafe_allow_html=True)
         
@@ -132,6 +173,7 @@ if __name__ == '__main__':
             st.markdown("<h4 style='text-align: center;'>Upload CV</h4>", unsafe_allow_html=True)
             # st.subheader('Upload CV')
             st.file_uploader('Upload your CV', type=['pdf'])
+            st.divider()
 
             st.markdown("<h4 style='text-align: center;'>Your personal information</h4>", unsafe_allow_html=True)
             name_col, surname_col = st.columns(2)
@@ -142,6 +184,7 @@ if __name__ == '__main__':
             email_col, nr_col = st.columns(2)
             email = email_col.text_input('Email', placeholder='person@gmail.com')
             phone_nr = nr_col.text_input('Phone number', placeholder='+1 123 456 789')
+            st.divider()
 
             st.markdown("<h4 style='text-align: center;'>Your preferences</h4>", unsafe_allow_html=True)
 
@@ -166,91 +209,71 @@ if __name__ == '__main__':
                           placeholder='remote, flexible hours, health insurance')
             
 
-            _, _, _, _, submit_col = st.columns(5)
-            submit = submit_col.button('Start Job Hunt', on_click=set_searching)
-
+            _, submit_col = st.columns([0.85, 0.15])
+            with submit_col:
+                st.write('')
+                st.write('')
+                #root > div:nth-child(1) > div.withScreencast > div > div > div > section > div.block-container.css-z5fcl4.ea3mdgi4 > div:nth-child(1) > div > div:nth-child(2) > div > div.css-ocqkz7.e1f1d6gn3 > div:nth-child(1) > div:nth-child(1) > div > div:nth-child(16) > div.css-1s60f5m.e1f1d6gn1 > div:nth-child(1) > div > div:nth-child(3) > div > div
+                #root > div:nth-child(1) > div.withScreencast > div > div > div > section > div.block-container.css-z5fcl4.ea3mdgi4 > div:nth-child(1) > div > div:nth-child(2) > div > div.css-ocqkz7.e1f1d6gn3 > div:nth-child(1) > div:nth-child(1) > div > div:nth-child(16) > div.css-1s60f5m.e1f1d6gn1 > div:nth-child(1) > div > div:nth-child(4) > div
+                st.markdown("""
+                <style>
+                div:nth-child(4) > div > button {
+                    background-color: #559955;
+                    border-color: #226622;
+                    color:#ffffff;
+                }
+                div:nth-child(4) > div > button:hover {
+                    background-color: #448844;
+                }
+                </style>""", unsafe_allow_html=True)
+                submit = submit_col.button('Start Job Hunt', on_click=set_searching, use_container_width=True, type='primary')
+                # ChangeButtonColour('Start Job Hunt', font_color='white', background_color=0x55cc77)
+                
 
         if st.session_state.searching:
+            if st.session_state.get_jobs:
+                st.session_state.job_offers = get_job_recommendations('')
+                st.session_state.get_jobs = False
             with output_col:
                 st.markdown("<h4 style='text-align: center;'>Job recommendations</h4>", unsafe_allow_html=True)
 
-                ### ADD THE RECOMMENDATIONS HERE ###
-                for i, rec in enumerate(st.session_state.recommendations):
-                    del_col, job_col = st.columns([0.1, 0.9])
+                ### ADD THE RECOMMENDATIONS ###
+                for i, job_offer in enumerate(st.session_state.job_offers[:N_OFFERS_TO_SHOW]):
+                    _, job_col, buttons_col = st.columns([0.05, 0.86, 0.09])
+
+                    job_title = job_offer['JobTitle']
+                    company = job_offer['Company']
+                    url = job_offer['Url']
+                    description = job_offer['Description'] # TODO: to be changed to short description
+
+                    current_div = JOB_OFFER.format(title=job_title, company=company, url=url, description=description)
+
                     with job_col:
-                        job_titles.append(st.markdown(f'Rec {i}: "{rec}"'))
-                    # with del_col:
-                    #     st.write(' ')
-                    #     st.button('X', key=f'delete_rec_{i}', on_click=del_job_position(i))
+                        job_titles.append(st.markdown(f'{current_div}', unsafe_allow_html=True))
+                        st.write('')
+                    with buttons_col:
+                        st.write('')
+                        print(i)
+                        st.button('Decline', key=f'delete_job_offer_{i}', on_click=del_job_offer(i), use_container_width=True)
+                        st.button('Apply', key=f'accept_job_offer{i}', on_click=accept_job_offer(i), use_container_width=True)
 
-                _, spinner_col, _ = st.columns(3)
-                with spinner_col:
-                    with st.spinner(text="In progress..."):
-                        input()
+                _, accept_all_col = st.columns([0.85, 0.15])
+                with accept_all_col:
+                    st.write('')
+                    st.write('')
+                    st.markdown("""
+                    <style>
+                    div:nth-child(4) > div > button {
+                        background-color: #559955;
+                        border-color: #226622;
+                        color:#ffffff;
+                    }
+                    div:nth-child(4) > div > button:hover {
+                        background-color: #448844;
+                    }
+                    </style>""", unsafe_allow_html=True)
+                    st.button(
+                        'Accept all', key=f'accept_all_job_offers', type='primary',
+                        on_click=accept_all_job_offers(min(N_OFFERS_TO_SHOW, len(st.session_state.job_offers))),
+                        use_container_width=True)
 
-        # min_col, max_col, disp_col = st.columns([0.5, 0.5, 1]) # Then 4 columns for min/max budget
-        # sel_col, img_col = st.columns(2) # First 2 columns, 1 for input, 2nd for output
-        # sel_col_final, prev_col, next_col = st.columns([1, 0.5, 0.5])  # At the end 3 columns, the first for generate button
-
-        # age = sel_col.number_input('How old is the person the gift is for', min_value=0, max_value=200, value=15    )
-
-        # gender = sel_col.selectbox('What is the gender of the person the gift is for',
-        #                       options=['Woman', 'Man', 'Non-binary'], index=0)
-
-        # interests = sel_col.text_input(
-        #     'Describe the person interests', placeholder='swimming, car racing', max_chars=2000)
-
-        # min_budget = min_col.number_input('Min $', value=10.0, min_value=0.0)
-        # max_budget = max_col.number_input('Max $', value=50.0, min_value=0.0)
-
-        # if 'is_generated' not in st.session_state:
-        #     st.session_state.is_generated = False
-        # if 'images' not in st.session_state:
-        #     st.session_state.images = []
-        # if 'count' not in st.session_state:
-        #     st.session_state.count = 0
-
-        # should_generate = sel_col_final.button('Generate', key='generate')
-        # should_update = next_col.button('Show next idea', key='next_idea')
-        # show_previous = prev_col.button('Show previous idea', key='prev_idea')
-
-        # if should_generate:
-        #     st.session_state.count = 0
-        #     st.session_state.is_generated = True
-        #     st.session_state.ideas, output_image = generate_text_and_image(interests, gender, age)
-        #     st.session_state.images =[output_image]
-        #     populate_column(img_col, disp_col, output_image, 0, min_budget, max_budget)
-        #     print('=' * 50)
-        #     print(type(output_image))
-        #     print('=' * 50)
-
-        # if show_previous:
-        #     if st.session_state.is_generated:
-        #         if st.session_state.count == 0:
-        #             output_image = st.session_state.images[st.session_state.count]
-        #             populate_column(img_col, disp_col, output_image, st.session_state.count, min_budget, max_budget)
-        #             disp_col.write(f'There are no previous ideas, the current one is the first one :)')
-        #         else:
-        #             st.session_state.count -= 1
-        #             output_image = st.session_state.images[st.session_state.count]
-        #             populate_column(img_col, disp_col, output_image, st.session_state.count, min_budget, max_budget)
-        #     else:
-        #         disp_col.write(f'Consider generating some ideas first :)')
-
-        # if should_update:
-        #     if st.session_state.is_generated:
-        #         st.session_state.count += 1
-        #         if st.session_state.count < len(st.session_state.images):
-        #             output_image = st.session_state.images[st.session_state.count]
-        #             populate_column(img_col, disp_col, output_image, st.session_state.count, min_budget, max_budget)
-        #         elif st.session_state.count < N_IDEAS_TO_SHOW:
-        #             output_image = update_image(interests, gender, age, st.session_state.ideas, st.session_state.count)
-        #             st.session_state.images.append(output_image)
-        #             populate_column(img_col, disp_col, output_image, st.session_state.count, min_budget, max_budget)
-        #         else: 
-        #             output_image = update_image(interests, gender, age, 'sad face', st.session_state.count)
-        #             populate_column(img_col, disp_col, output_image, st.session_state.count, min_budget, max_budget)
-        #     else:
-        #         disp_col.write(f'Consider generating some ideas first :)')
-        #     st.session_state.count = min(st.session_state.count, N_IDEAS_TO_SHOW)
-                    
