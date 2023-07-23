@@ -1,173 +1,110 @@
-from langchain.agents.agent_toolkits import create_python_agent
-from langchain.tools.python.tool import PythonREPLTool
-from langchain.python import PythonREPL
-from langchain.llms.openai import OpenAI
-from langchain.agents.agent_types import AgentType
-from langchain.chat_models import ChatOpenAI
-from langchain.prompts import ChatPromptTemplate
-from langchain.prompts import SystemMessagePromptTemplate
-from langchain.prompts import HumanMessagePromptTemplate
-from langchain.prompts import AIMessagePromptTemplate
-
+import json
+import os
+import asyncio
+from time import sleep
 from bs4 import BeautifulSoup
-import requests
+from lxml import etree
+
+from langchain.agents.agent_toolkits import PlayWrightBrowserToolkit
+from langchain.tools.playwright.utils import (
+    create_async_playwright_browser,
+    create_sync_playwright_browser,  # A synchronous browser is available, though it isn't compatible with jupyter.
+)
+from langchain.llms.openai import OpenAI
+from langchain.agents import initialize_agent, AgentType
+# from playwright.async_api import async_playwright
 from selenium import webdriver
 from selenium.webdriver.support.wait import WebDriverWait
 from selenium.webdriver.common.by import By
 
-import json
-import os
-
-with open('./credentials/openai.txt', 'r') as f:
-    openai_api_key = f.read()
-    os.environ['OPENAI_API_KEY'] = openai_api_key
+from lxml import etree
+from io import StringIO
 
 
-# def do_work(form, user_info):
-#     # llm = OpenAI(openai_api_key=openai_api_key, temperature=0.1)
+def read_data():
+    with open("../data/example_personal_info.json") as json_file:
+        data_personal = json.load(json_file)
 
-#     # print(form)
+    with open("../data/job_offers.json") as job_file:
+        data_jobs = json.load(job_file)
 
-#     form_template = ""
-#     form_path = './data/form_template.html'
-#     with open(form_path, 'w') as f:
-#         f.write(form)
-
-#     review_template = """\
-#     You are provided with personal information witin file: {user_info}.
-#     You are also provided with the following HTML form: {form_path}
-#     Your task is to load data from both those files and write a Selenium script that will fill the form with the data as if the form was a real website.
-#     You should output only the Selenium script and not the data loading part. 
-#     IMPORTANT: Especially you can't output the data from the personal information file.
-
-#     You should first load the data from both files and print to the console the data that you loaded.
-#     For that you can use print(...)
-#     Next, after you already know the html code of the form from the previous step,
-#     you should write the Selenium script that will fill the form with the data.
-#     You should use the following Selenium methods:
-
-#     '''
-#     from selenium import webdriver
-#     from selenium.webdriver import FirefoxOptions
-
-#     opts = FirefoxOptions()
-#     opts.add_argument("--headless")
-#     browser = webdriver.Firefox(options=opts)
-
-#     ==== HERE GOES YOUR CODE ====
-#     # You should use: find_element("xpath", xpath), find_element_by_xpath and equivalent methods don't work in the current version of SeleniumBase
-#     '''
-#     """
-
-#     agent_executor = create_python_agent(
-#         llm=OpenAI(temperature=0, max_tokens=1000),
-#         tool=PythonREPLTool(),
-#         verbose=True,
-#         agent_type=AgentType.ZERO_SHOT_REACT_DESCRIPTION,
-#     )
-
-#     prompt_template = SystemMessagePromptTemplate.from_template(review_template)
-#     print(prompt_template)
-#     messages = prompt_template.format(form_path=form_template, user_info=user_info)
-#     response = agent_executor.run(messages)
-#     print(response)
-#     # print(response.content)
+    return data_jobs, data_personal
 
 
-def do_work(form, user_info):
-    # llm = OpenAI(openai_api_key=openai_api_key, temperature=0.1)
+def get_element_by_xpath(driver, xpath, timeout=10, time_wait=0.5):
+    sleep(time_wait)
+    # This could print element's text:
+    # source = driver.page_source
+    # htmlparser = etree.HTMLParser()
+    # tree = etree.parse(StringIO(source), htmlparser)
+    # print(tree.xpath(xpath)[0].text)
 
-    # print(form)
-
-    form_template = ""
-    # form_path = './data/form_template.html'
-    # with open(form_path, 'w') as f:
-    #     f.write(form)
-
-    review_template = """\
-    There is a json file containing personal information. To keep the information private, you are only provided with the keys of this json file.
-    You are also provided with the following HTML form that needs to be filled with the personal data.
-    The form is a form that normally candidates fill when applying for a job.
-
-    Your task is to output a json file that does mapping from the XPATH of the form fields to the keys of the json file.
-    In the form there are also fields that need files to be uploaded. You should treat them the same way as the other fields.
-    If you don't have the keys needed to fill some of the fields, you should output null for those fields.
-    If some of the fields require a creative answer, you should output "CREATIVE" for those fields.
-    Example:
-    Personal information keys:
-    ["Name", "Surname", "Email", "CV", "Phone number"]
-
-    Form to be filled:
+    return WebDriverWait(driver, timeout).until(lambda x: x.find_element('xpath', xpath))
 
 
-
-    {
-        "//*[@id="name"]": "Name",
-        "//*[@id="apply-modal"]/section/common-material-modal/div/section/nfj-apply-internal-step-application/form/nfj-form-field[2]/div[1]/div/input": "Email",
-        "/html/body/div[4]/div[2]/div/mat-dialog-container/nfj-posting-apply-internal-modal/section/common-material-modal/div/section/nfj-apply-internal-step-application/form/div[2]/nfj-user-files/nfj-apply-attachment-btn/span[2]/label": "CV",
-        "//*[@id="your_mothers_maiden_name"]": null,
-        "//*[@id="cover_letter"]": "CREATIVE",
-    }
-    """
-
-    agent_executor = create_python_agent(
-        llm=OpenAI(temperature=0, max_tokens=1000),
-        tool=PythonREPLTool(),
-        verbose=True,
-        agent_type=AgentType.ZERO_SHOT_REACT_DESCRIPTION,
-    )
-
-    prompt_template = SystemMessagePromptTemplate.from_template(review_template)
-    print(prompt_template)
-    messages = prompt_template.format(form_path=form_template, user_info=user_info)
-    response = agent_executor.run(messages)
-    print(response)
-    # print(response.content)
+def click_element_by_xpath(driver, xpath, **kwargs):
+    element = get_element_by_xpath(driver, xpath, **kwargs)
+    element.click()
+    return element
 
 
-def scrape_web_page(url):
-    # Fetch the web page content
-    response = requests.get(url)
+def fill_element_by_xpath(driver, xpath, text, **kwargs):
+    element = get_element_by_xpath(driver, xpath, **kwargs)
+    element.send_keys(text)
+    return element
 
-    # Check if the request was successful
-    if response.status_code == 200:
-        html_content = response.text
-    else:
-        print("Failed to fetch the web page.")
-        return None
 
-    # Parse the HTML with Beautiful Soup
-    soup = BeautifulSoup(html_content, "html.parser")
+def run_selenium(url, personal_data):
+    driver = webdriver.Firefox()
+    driver.get(url)
 
-    return soup
+    # Click "Apply" button
+    xpathButtonApply = "//*[@id='applyButton']"
+    click_element_by_xpath(driver, xpathButtonApply)
+
+    # Fill in the "Name & Surname"
+    xpathNameInput = '//*[@id="apply-modal"]/section/common-material-modal/div/section/nfj-apply-internal-step-application/form/nfj-form-field[1]/div[1]/div/input'
+    fill_element_by_xpath(driver, xpathNameInput, f"{personal_data['Name']} {personal_data['Surname']}")
+
+    # Fill in the "Email"
+    xpathEmailInput = '//*[@id="apply-modal"]/section/common-material-modal/div/section/nfj-apply-internal-step-application/form/nfj-form-field[2]/div[1]/div/input'
+    fill_element_by_xpath(driver, xpathEmailInput, personal_data['Email'])
+
+    # Fill in the "job location" (in 3 steps: click, choose, close selection)
+    # Click "Choose job location"
+    xpathChooseJob = '//*[@id="apply-modal"]/section/common-material-modal/div/section/nfj-apply-internal-step-application/form/div[1]/div/nfj-multiselect-dropdown/div/div/div[1]/span'
+    click_element_by_xpath(driver, xpathChooseJob)
+
+    # Tutaj trzeba użyć LLM żeby znaleźć lokalizacje najbardziej odpowiadajace użytkownikowi
+    # Select location that is best for candidate
+    xpathLocationCheckbox = '//*[@id="apply-modal"]/section/common-material-modal/div/section/nfj-apply-internal-step-application/form/div[1]/div/nfj-multiselect-dropdown/div/div/div[2]/div/ul[2]/li[1]'
+    click_element_by_xpath(driver, xpathLocationCheckbox)
+
+    # Close selection
+    click_element_by_xpath(driver, xpathChooseJob)
+
+    # Upload CV 
+    xpathCVUpload = '//*[@id="attachment"]'
+    cv_path = "/home/laszer/projects/llm_agent_hackathon/good-jobber/CV_WojciechMaciejewski.pdf"
+    fill_element_by_xpath(driver, xpathCVUpload, cv_path)
+
+    # Probably not needed during demo? Is it even needed at all? 
+    # Seems like the bot can click stuff even if it's not visible because of the popup
+
+    # xpathCookies = '//*[@id="onetrust-accept-btn-handler"]'
+    # WebDriverWait(driver, 30).until(lambda x: x.find_element('xpath', xpathCookies))
+    # acceptCookies = driver.find_element('xpath', xpathCookies)
+    # acceptCookies.click()
+    
+    input("Press Enter to continue...")
+    driver.close()
+
+
+def findBestLocation(htmlCode, locationUser):
+    pass
+
 
 if __name__ == '__main__':
-    url_to_scrape = "https://nofluffjobs.com/pl/job/programista-web-regular-ework-group-warszawa"
-
-    driver = webdriver.Chrome()
-
-    # Open the web page
-    driver.get(url_to_scrape)
-
-    # Find the form element by its tag name "form"
-    id_button = '//*[@id="applyButton"]'
-    form_tag = '//form'
-    aplikuj_button = WebDriverWait(driver, 10).until(lambda x: x.find_element('xpath', id_button))
-    driver.execute_script("arguments[0].scrollIntoView();", aplikuj_button)
-    aplikuj_button.click()
-    form = WebDriverWait(driver, 10).until(lambda x: x.find_element(By.TAG_NAME, 'form'))
-
-    myForm = driver.find_element(By.TAG_NAME, 'form')
-    # content_form = driver.find_element("xpath", form_tag)
-    
-    user_info_path = './data/example_personal_info.json'
-    with open(user_info_path, 'r') as f:
-        user_info = json.load(f)
-
-    content = myForm.get_attribute("outerHTML")
-    print('='*100)
-    print(content)
-    print('='*100)
-    raise
-    # print(content)
-    do_work(content, user_info=user_info_path)
+    data_jobs, data_personal = read_data()
+    url = data_jobs[8]["Url"]
+    run_selenium(url, data_personal)
