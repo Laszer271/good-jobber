@@ -7,63 +7,26 @@ def installff():
   os.system('sbase install geckodriver')
   os.system('ln -s /home/appuser/venv/lib/python3.7/site-packages/seleniumbase/drivers/geckodriver /home/appuser/venv/bin/geckodriver')
 
-import numpy as np
-import re
-from io import BytesIO
-import base64
-from PIL import Image
-import json
+if 'OPENAI_API_KEY' not in os.environ:
+    with open('./credentials/openai.txt', 'r') as f:
+        os.environ["OPENAI_API_KEY"] = f.read()
 
-from selenium import webdriver
-from selenium.webdriver.support.wait import WebDriverWait 
-from selenium.webdriver.support import expected_conditions as EC
-from selenium.webdriver import FirefoxOptions
+import pandas as pd
+from time import sleep
+from tempfile import NamedTemporaryFile
+from datetime import datetime
+
+from langchain.embeddings import HuggingFaceEmbeddings
+from langchain.vectorstores import Chroma
 
 from html_components import JOB_OFFER, DEFAULT_STYLE
 from lib.utils import ChangeButtonColour
 from lib.auto_forms import run_selenium
-from tempfile import NamedTemporaryFile
-from datetime import datetime
+from lib.llm_describe import get_description
 
 
-# def get_content_from_wiki():
-#     def wait_for_text(browser, xpath):
-#         print('waiting for element')
-#         print('Text:', f'"{browser.find_element("xpath", xpath).text}"')
-#         return len(browser.find_element("xpath", xpath).text) > 10
-#         # element = WebDriverWait(browser, 10).until(
-#         #     lambda x: len(x.find_element('xpath' xpath).text) > 10
-#         # )
-#         # return element
-
-#     opts = FirefoxOptions()
-#     opts.add_argument("--headless")
-#     browser = webdriver.Firefox(options=opts)
-#     browser.get('https://en.wikipedia.org/wiki/Main_Page')
-
-#     list_xpath = '//*[@id="vector-main-menu-dropdown-checkbox"]'
-#     random = '/html/body/div[1]/header/div[1]/nav/div/div/div/div/div[2]/div[2]/ul/li[4]/a'
-#     first_par = '/html/body/div[2]/div/div[3]/main/div[3]/div[3]/div[1]/p[2]'
-
-#     # click on the checkbox
-#     next_button = WebDriverWait(browser, 10).until(lambda x: x.find_element('xpath', list_xpath)) 
-#     # next_button = browser.find_element("xpath", list_xpath)
-#     browser.execute_script("arguments[0].scrollIntoView();", next_button)
-#     next_button.click()
-
-#     next_button = WebDriverWait(browser, 10).until(lambda x: x.find_element('xpath', random)) 
-#     # next_button = browser.find_element("xpath", random)
-#     browser.execute_script("arguments[0].scrollIntoView();", next_button)
-#     next_button.click()
-
-#     # not always working:
-#     content = WebDriverWait(browser, 10).until(lambda x: wait_for_text(x, first_par))
-#     content = browser.find_element("xpath", first_par).text
-#     print(content)
-
-#     # close browser
-#     browser.close()
-#     return content
+N_OFFERS_TO_SHOW = 5
+N_OFFERS_TO_STORE = 100
 
 
 def add_job_position():
@@ -89,43 +52,82 @@ def get_job_recommendations(candidate_preferences):
     # this should be run only once when job hunt is started
     print(candidate_preferences)
 
-    with open('./data/all_offers_with_desc_pruned.json', 'r') as f:
-        job_list = json.load(f)
-    
-    base_url = 'https://nofluffjobs.com{offer_link}?lang=en'
-    job_list = [{k: val if k != 'Url' else base_url.format(offer_link=val) for k, val in v.items()} for v in job_list.values()]
+    data = pd.read_json('./data/all_offers_with_desc_pruned.json', orient='index').reset_index(drop=True).sample(frac=1)
+    data['Url'] = 'https://nofluffjobs.com' + data['Url'] + '?lang=en'
 
-    return job_list
+    # db = Chroma.from_texts(data['Description'].tolist(), HuggingFaceEmbeddings())
+    search_results = st.session_state.db.similarity_search(candidate_preferences, k=N_OFFERS_TO_STORE)
+    search_results = [doc.page_content for doc in search_results]
+
+    data = data.set_index('Description').loc[search_results].reset_index()
+    data['ShortDescription'] = None
+    # data = data.loc[data['Description'].isin(search_results)].reset_index(drop=True)
+
+    return data
 
 
 def del_job_offer(i):
     def del_job():
-        del st.session_state.job_offers[i]
+        # del st.session_state.job_offers[i]
+        # print('To drop:', i)
+        # print(st.session_state.job_offers)
+        st.session_state.job_offers.drop(index=i, inplace=True)
+        st.session_state.job_offers.reset_index(drop=True, inplace=True)
     return del_job
 
 
-def accept_job_offer(i, personal_data):
+def accept_job_offer(i, personal_data, fake=False):
     # TODO: add the job to the list of accepted jobs
     def accept_job():
-        with NamedTemporaryFile(dir='.', suffix='.pdf') as f:
+        with NamedTemporaryFile(dir='.', suffix=f'_{personal_data["Surname"]}{personal_data["Name"]}_CV.pdf') as f:
             f.write(personal_data['CV'].getbuffer())
             cv_path = f.name
             personal_data['cv_path'] = cv_path
-            url = st.session_state.job_offers[i]['Url']
-            run_selenium(url, personal_data) # Runs the bot to apply for the job
+            url = st.session_state.job_offers.iloc[i]['Url']
+            if not fake:
+                run_selenium(url, personal_data) # Runs the bot to apply for the job
 
-        del st.session_state.job_offers[i]
+        del_job_offer(i)()
     return accept_job
 
 
-def accept_all_job_offers(n_jobs, personal_data):
+def accept_all_job_offers(n_jobs, personal_data, fake=False):
     def accept_all():
         for i in range(n_jobs):
-            accept_job_offer(0, personal_data)()
+            accept_job_offer(0, personal_data, fake=fake)()
     return accept_all
 
 
-N_OFFERS_TO_SHOW = 5
+def populate_offers(person_description, personal_data):
+    for i, (_, job_offer) in enumerate(st.session_state.job_offers.iloc[:N_OFFERS_TO_SHOW].iterrows()):
+        _, job_col, buttons_col = st.columns([0.05, 0.73, 0.22])
+
+        with job_col:
+            with st.spinner('Personalizing the job offers...'):
+                job_title = job_offer['JobTitle']
+                company = job_offer['Company']
+                url = job_offer['Url']
+                description = job_offer['Description'] 
+                short_description = job_offer['ShortDescription']
+                short_description = '' # TODO: erase that
+
+                if short_description is None:
+                    short_description = get_description(description, person_description)
+                    st.session_state.job_offers.iloc[i]['ShortDescription'] = short_description
+                else:
+                    sleep(0.0)
+
+                current_div = JOB_OFFER.format(title=job_title, company=company, url=url, description=short_description)
+
+                # Adding the job offer to the list of recommendations
+                job_titles.append(st.markdown(f'{current_div}', unsafe_allow_html=True))
+                st.write('')
+            with buttons_col:
+                st.write('')
+                print(i)
+                st.button('Decline', key=f'delete_job_offer_{i}', on_click=del_job_offer(i), use_container_width=True)
+                st.button('Apply', key=f'accept_job_offer{i}', on_click=accept_job_offer(i, personal_data), use_container_width=True)
+
 
 if __name__ == '__main__':
 
@@ -136,8 +138,10 @@ if __name__ == '__main__':
     )
     _ = installff()
 
-    # st.set_page_config(layout="wide")
-    N_IDEAS_TO_SHOW = 10
+    # initialize our database
+    if 'db' not in st.session_state:
+        data = pd.read_json('./data/all_offers_with_desc_pruned.json', orient='index').reset_index(drop=True).sample(frac=1)
+        st.session_state.db = Chroma.from_texts(data['Description'].tolist(), HuggingFaceEmbeddings())    
 
     model_gui = st.container()
 
@@ -264,27 +268,17 @@ if __name__ == '__main__':
 
             with output_col:
                 st.markdown("<h4 style='text-align: center;'>Job recommendations</h4>", unsafe_allow_html=True)
+                # _, apply_all_col, _ = st.columns([0.35, 0.3, 0.35])
+                # with apply_all_col:
+                #     agree = st.button('Apply to all', type='primary')
 
                 ### ADD THE RECOMMENDATIONS ###
-                for i, job_offer in enumerate(st.session_state.job_offers[:N_OFFERS_TO_SHOW]):
-                    _, job_col, buttons_col = st.columns([0.05, 0.73, 0.22])
-
-                    job_title = job_offer['JobTitle']
-                    company = job_offer['Company']
-                    url = job_offer['Url']
-                    description = job_offer['Description'] # TODO: to be changed to short description
-                    short_description = description[:100]
-
-                    current_div = JOB_OFFER.format(title=job_title, company=company, url=url, description=short_description)
-
-                    with job_col:
-                        job_titles.append(st.markdown(f'{current_div}', unsafe_allow_html=True))
-                        st.write('')
-                    with buttons_col:
-                        st.write('')
-                        print(i)
-                        st.button('Decline', key=f'delete_job_offer_{i}', on_click=del_job_offer(i), use_container_width=True)
-                        st.button('Apply', key=f'accept_job_offer{i}', on_click=accept_job_offer(i, personal_data), use_container_width=True)
+                # if agree:
+                #     while len(st.session_state.job_offers) > 0:
+                #         populate_offers(person_description, personal_data)
+                #         accept_all_job_offers(min(N_OFFERS_TO_SHOW, len(st.session_state.job_offers)), personal_data, fake=True)()
+                # else:
+                populate_offers(person_description, personal_data)
 
                 _, accept_all_col = st.columns([0.85, 0.15])
                 with accept_all_col:
@@ -303,6 +297,9 @@ if __name__ == '__main__':
                     </style>""", unsafe_allow_html=True)
                     st.button(
                         'Accept all', key=f'accept_all_job_offers', type='primary',
-                        on_click=accept_all_job_offers(min(N_OFFERS_TO_SHOW, len(st.session_state.job_offers)), personal_data),
+                        on_click=accept_all_job_offers(min(N_OFFERS_TO_SHOW, len(st.session_state.job_offers)), personal_data, fake=True),
                         use_container_width=True)
+                    
+                    
+
 

@@ -85,7 +85,7 @@ def run_selenium(url, personal_data):
 
     # Upload CV 
     xpathCVUpload = '//*[@id="attachment"]'
-    cv_path = "/home/laszer/projects/llm_agent_hackathon/good-jobber/CV_WojciechMaciejewski.pdf"
+    cv_path = personal_data['cv_path']
     fill_element_by_xpath(driver, xpathCVUpload, cv_path)
 
     # Probably not needed during demo? Is it even needed at all? 
@@ -96,7 +96,7 @@ def run_selenium(url, personal_data):
     # acceptCookies = driver.find_element('xpath', xpathCookies)
     # acceptCookies.click()
     
-    input("Press Enter to continue...")
+    sleep(4)
     driver.close()
 
 
