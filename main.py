@@ -7,9 +7,6 @@ def installff():
   os.system('sbase install geckodriver')
   os.system('ln -s /home/appuser/venv/lib/python3.7/site-packages/seleniumbase/drivers/geckodriver /home/appuser/venv/bin/geckodriver')
 
-if 'OPENAI_API_KEY' not in os.environ:
-    with open('./credentials/openai.txt', 'r') as f:
-        os.environ["OPENAI_API_KEY"] = f.read()
 
 import pandas as pd
 from time import sleep
@@ -52,14 +49,13 @@ def get_job_recommendations(candidate_preferences):
     # this should be run only once when job hunt is started
     print(candidate_preferences)
 
-    data = pd.read_json('./data/all_offers_with_desc_pruned.json', orient='index').reset_index(drop=True).sample(frac=1)
+    data = pd.read_json('./data/all_offers_with_desc_pruned.json', orient='index').reset_index(drop=True)
     data['Url'] = 'https://nofluffjobs.com' + data['Url'] + '?lang=en'
 
-    # db = Chroma.from_texts(data['Description'].tolist(), HuggingFaceEmbeddings())
-    search_results = st.session_state.db.similarity_search(candidate_preferences, k=N_OFFERS_TO_STORE)
-    search_results = [doc.page_content for doc in search_results]
+    # search_results = st.session_state.db.similarity_search(candidate_preferences, k=N_OFFERS_TO_STORE)
+    # search_results = [doc.page_content for doc in search_results]
 
-    data = data.set_index('Description').loc[search_results].reset_index()
+    # data = data.set_index('Description').loc[search_results].reset_index()
     data['ShortDescription'] = None
     # data = data.loc[data['Description'].isin(search_results)].reset_index(drop=True)
 
@@ -80,9 +76,9 @@ def accept_job_offer(i, personal_data, fake=False):
     # TODO: add the job to the list of accepted jobs
     def accept_job():
         with NamedTemporaryFile(dir='.', suffix=f'_{personal_data["Surname"]}{personal_data["Name"]}_CV.pdf') as f:
-            f.write(personal_data['CV'].getbuffer())
-            cv_path = f.name
-            personal_data['cv_path'] = cv_path
+            # f.write(personal_data['CV'].getbuffer())
+            # cv_path = f.name
+            personal_data['cv_path'] = 'placeholder'
             url = st.session_state.job_offers.iloc[i]['Url']
             if not fake:
                 run_selenium(url, personal_data) # Runs the bot to apply for the job
@@ -126,7 +122,7 @@ def populate_offers(person_description, personal_data):
                 st.write('')
                 print(i)
                 st.button('Decline', key=f'delete_job_offer_{i}', on_click=del_job_offer(i), use_container_width=True)
-                st.button('Apply', key=f'accept_job_offer{i}', on_click=accept_job_offer(i, personal_data), use_container_width=True)
+                st.button('Apply', key=f'accept_job_offer{i}', on_click=accept_job_offer(i, personal_data, fake=True), use_container_width=True)
 
 
 if __name__ == '__main__':
@@ -138,10 +134,21 @@ if __name__ == '__main__':
     )
     _ = installff()
 
+    if 'OPENAI_API_KEY' not in os.environ:
+        try:
+            key_from_secret = st.secrets["OPENAI_API_KEY"]
+            hf_key_from_secret = st.secrets["HUGGINGFACEHUB_API_TOKEN"]
+            os.environ["OPENAI_API_KEY"] = st.secrets["OPENAI_API_KEY"]
+            os.environ['HUGGINGFACEHUB_API_TOKEN'] = hf_key_from_secret
+        except:
+            with open('./credentials/openai.txt', 'r') as f:
+                os.environ["OPENAI_API_KEY"] = f.read()
+
     # initialize our database
-    if 'db' not in st.session_state:
-        data = pd.read_json('./data/all_offers_with_desc_pruned.json', orient='index').reset_index(drop=True).sample(frac=1)
-        st.session_state.db = Chroma.from_texts(data['Description'].tolist(), HuggingFaceEmbeddings())    
+    # if 'db' not in st.session_state:
+    #     data = pd.read_json('./data/all_offers_with_desc_pruned.json', orient='index').reset_index(drop=True).sample(frac=1, random_state=42)
+    #     data = data.iloc[5:]
+    #     st.session_state.db = Chroma.from_texts(data['Description'].tolist(), HuggingFaceEmbeddings())    
 
     model_gui = st.container()
 
@@ -157,6 +164,12 @@ if __name__ == '__main__':
     job_titles = []
 
     with model_gui:
+        msg = '''For the purposes of safe public deployment the personal data section is disabled. The bot will also not apply for any jobs.
+        The preferences section works though and you can add your own preferences but recommendations do not.
+        We have to show the same offers because streamlit cannot handle vectorstore and calculating embeddings at all.
+        On our repo there is a version that should work on local machine though. Have fun!
+        '''
+        st.markdown(f"<h2 style='color: red;'>{msg}</h2>", unsafe_allow_html=True)
         st.markdown(DEFAULT_STYLE, unsafe_allow_html=True)
         st.markdown("<h1 style='text-align: center;'>Good Job Finder</h1>", unsafe_allow_html=True)
         st.markdown("<h3 style='text-align: center;'>Find a job that matches your skills and interests</h3>", unsafe_allow_html=True)
@@ -166,28 +179,28 @@ if __name__ == '__main__':
         with info_col:
             st.markdown("<h4 style='text-align: center;'>Upload CV</h4>", unsafe_allow_html=True)
             # st.subheader('Upload CV')
-            cv = st.file_uploader('Upload your CV', type=['pdf'])
+            cv = st.file_uploader('Upload your CV', type=['pdf'], disabled=True)
             st.divider()
 
             st.markdown("<h4 style='text-align: center;'>Your personal information</h4>", unsafe_allow_html=True)
             name_col, surname_col = st.columns(2)
-            name = name_col.text_input('Name', placeholder='Oli', value='Oli')
-            surname = surname_col.text_input('Surname', placeholder='Ali', value='Ali')
+            name = name_col.text_input('Name', placeholder='Oli', value='Oli', disabled=True)
+            surname = surname_col.text_input('Surname', placeholder='Ali', value='Ali', disabled=True)
             birthdate = st.date_input('Birthdate', 
                                       value=datetime(2000, 10, 12),
                                       min_value=datetime(1900, 1, 1),
-                                      max_value=datetime.now())
+                                      max_value=datetime.now(), disabled=True)
             address = st.text_input('Address',
                                     placeholder='123 Main St, New York, NY 10030',
-                                    value='123 Main St, New York, NY 10030'
+                                    value='123 Main St, New York, NY 10030', disabled=True
                                     )
             email_col, nr_col = st.columns(2)
             email = email_col.text_input('Email',
                                          placeholder='person@gmail.com',
-                                         value='person@gmail.com')
+                                         value='person@gmail.com', disabled=True)
             phone_nr = nr_col.text_input('Phone number',
                                          placeholder='+1 123 456 789',
-                                         value='+1 123 456 789')
+                                         value='+1 123 456 789', disabled=True)
             st.divider()
 
             st.markdown("<h4 style='text-align: center;'>Your preferences</h4>", unsafe_allow_html=True)
